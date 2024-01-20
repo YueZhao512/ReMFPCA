@@ -154,7 +154,7 @@ remfpca <- R6::R6Class("remfpca",
 #' @param alpha_orth Logical indicating whether to perform orthogonalization of the regularization parameters.
 #' @param penalty_type The type of penalty to be applied on the coefficients. The types "coefpen" and "basispen" is supported. Default is "coefpen".
 #' @export
-Remfpca <- function(mvmfd_obj, method = "power", ncomp, smooth_tuning = NULL,sparse_tuning, centerfns = TRUE, alpha_orth = FALSE,smooth_tuning_type = "coefpen",sparse_tuning_type = "soft",K_fold,cv_type = "joint") {
+Remfpca <- function(mvmfd_obj, method = "power", ncomp, smooth_tuning = NULL,sparse_tuning, centerfns = TRUE, alpha_orth = FALSE,smooth_tuning_type = "coefpen",sparse_tuning_type = "soft",K_fold=30,cv_type = "marginal") {
   remfpca$new(mvmfd_obj, method, ncomp, smooth_tuning,sparse_tuning, centerfns, alpha_orth,smooth_tuning_type,sparse_tuning_type,K_fold,cv_type)
 }
 #' @rdname remfpca
