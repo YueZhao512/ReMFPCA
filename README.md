@@ -8,5 +8,5 @@ You can install ReMFPCA from github with:
 
 ``` r
 # install.packages("remotes")
-remotes::install_github("haghbinh/ReMFPCA")
+remotes::install_github("YueZhao512/ReMFPCA")
 ```
