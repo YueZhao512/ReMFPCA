@@ -55,7 +55,7 @@
 #' @export
 remfpca <- R6::R6Class("remfpca",
                              public = list(
-                               initialize = function(mvmfd_obj, method = "power", ncomp, smooth_tuning = NULL,sparse_tuning = 0, centerfns = TRUE, alpha_orth = TRUE,smooth_tuning_type = "coefpen",sparse_tuning_type = "soft",K_fold,cv_type = "joint") {
+                               initialize = function(mvmfd_obj, method = "power", ncomp, smooth_tuning = NULL,sparse_tuning = 0, centerfns = TRUE, alpha_orth = FALSE,smooth_tuning_type = "coefpen",sparse_tuning_type = "SCAD",K_fold = 30,cv_type = "marginal") {
                                  if (is.numeric(smooth_tuning)) smooth_tuning <- as.list(smooth_tuning)
                                  if (is.mfd(mvmfd_obj)) mvmfd_obj <- mvmfd$new(mvmfd_obj)
                                  if (method == "power") {
