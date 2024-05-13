@@ -67,8 +67,8 @@ cv_score_sparse = function(data,G,S,K_fold,sparse_tuning_single,sparse_tuning_ty
 
 cv_score_smooth = function(data,mvmfd_obj,G,G_half,S_smooth,v,smooth_tuning){
   p = mvmfd_obj$nvar
-  index1 = mvmfd_obj$basis$nbasis[[1]]
-  index2 = mvmfd_obj$basis$nbasis[[2]]
+  index1 = prod(mvmfd_obj$basis$nbasis[[1]])
+  index2 = prod(mvmfd_obj$basis$nbasis[[2]])
   B_subtilde = data%*%G_half
   if (all(smooth_tuning == 0)) {
     error_smooth_score <- 0
