@@ -21,7 +21,8 @@ pen_fun <- function(data, devorder = 2, type) {
       else if (data$basis$basis[[i]]$dimSupp == 2) {
         P1 <- eval.penalty(data$basis$basis[[i]]$basis[[1]], Lfdobj = devorder)
         P2 <- eval.penalty(data$basis$basis[[i]]$basis[[2]], Lfdobj = devorder)
-        D <- P1 %x% diag(nrow(P2)) + diag(nrow(P1)) %x% P2
+        # D <- P1 %x% diag(nrow(P2)) + diag(nrow(P1)) %x% P2
+        D <- P2 %x% diag(nrow(P1)) + diag(nrow(P2)) %x% P1
       }
       # generate block diagonal matrix
       if (i == 1) {
@@ -39,9 +40,11 @@ pen_fun <- function(data, devorder = 2, type) {
       }
       # 2-dimensional case
       else if (data$basis$basis[[i]]$dimSupp == 2) {
-        P1 <- diff(diag(data$basis$basis[[i]]$nbasis[1]), differences = devorder)
-        P2 <- diff(diag(data$basis$basis[[i]]$nbasis[2]), differences = devorder)
-        D <- P1 %x% diag(nrow(P2)) + diag(nrow(P1)) %x% P2
+        L1 <- diff(diag(data$basis$basis[[i]]$nbasis[1]), differences = devorder)
+        L2 <- diff(diag(data$basis$basis[[i]]$nbasis[2]), differences = devorder)
+        P1 = t(L1) %*% L1; P2 = t(L2) %*% L2; 
+        # D <- P1 %x% diag(nrow(P2)) + diag(nrow(P1)) %x% P2
+        D <- P2 %x% diag(nrow(P1)) + diag(nrow(P2)) %x% P1
       }
       # generate block diagonal matrix
       if (i == 1) {
