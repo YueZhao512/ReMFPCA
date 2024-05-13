@@ -25,7 +25,7 @@ I_alpha <- function(data, lambda) {
 init_mfd_check <- function(argval, X, basis, method) {
   stopifnot(
     (is.numeric(argval) | is.list(argval) | is.null(argval)),
-    (is.matrix(X) | is.vector(X)),
+    (is.matrix(X) | is.vector(X) | is.array(X)),
     (is.basismfd(basis) | is.basis(basis)),
     (method == "coefs" | method == "data")
   )
