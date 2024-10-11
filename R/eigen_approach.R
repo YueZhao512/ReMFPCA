@@ -11,6 +11,8 @@ eigen_approach <- function(mvmfd_obj, n, alpha, centerfns, penalty_type) {
   if (p == 2) {
     gcv_row <- length(alpha[[1]])
     gcv_column <- length(alpha[[2]])
+    index1 = mvmfd_obj$basis$nbasis[[1]]
+    index2 = mvmfd_obj$basis$nbasis[[2]]
   }
   alpha <- expand.grid(alpha) 
   penalty <- pen_fun(mvmfd_obj, type = penalty_type)
@@ -82,7 +84,19 @@ eigen_approach <- function(mvmfd_obj, n, alpha, centerfns, penalty_type) {
     if (all(alpha[j, ] == 0)) {
       GCV_score_temp <- 0
     } else {
-      GCV_score_temp <- (sum(((diag(dim(s_alpha_tilde)[1]) - s_alpha_tilde) %*% (t(B_subtilde) %*% v_temp))^2) / ((1 - sum(diag(s_alpha_tilde)) / dim(G)[1])^2)) / dim(G)[1]
+      # GCV_score_temp <- (sum(((diag(dim(s_alpha_tilde)[1]) - s_alpha_tilde) %*% (t(B_subtilde) %*% v_temp))^2) / ((1 - sum(diag(s_alpha_tilde)) / dim(G)[1])^2)) / dim(G)[1]
+      if (p == 1) {
+        GCV_score_temp <- (sum(((diag(dim(s_alpha_tilde)[1]) - s_alpha_tilde) %*% (t(B_subtilde) %*% v_temp))^2) / ((1 - sum(diag(s_alpha_tilde)) / dim(G)[1])^2)) / dim(G)[1]
+      }
+      else{
+        s_alpha_tilde_1 = s_alpha_tilde[1:index1,1:index1]
+        s_alpha_tilde_2 = s_alpha_tilde[(1+index1):(index1+index2),(1+index1):(index1+index2)]
+        B_subtilde_1 = B_subtilde[,1:index1]
+        B_subtilde_2 = B_subtilde[,(1+index1):(index1+index2)]
+        GCV_score_temp_1 <- sum(((diag(index1) - s_alpha_tilde_1) %*% (t(B_subtilde_1) %*% v_temp))^2)/(1-sum(diag(s_alpha_tilde_1))/index1)^2
+        GCV_score_temp_2 <- sum(((diag(index2) - s_alpha_tilde_2) %*% (t(B_subtilde_2) %*% v_temp))^2)/(1-sum(diag(s_alpha_tilde_2))/index2)^2
+        GCV_score_temp = GCV_score_temp_1 + GCV_score_temp_2
+      }
     }
     GCVs <- c(GCVs, GCV_score_temp)
 
@@ -113,5 +127,5 @@ eigen_approach <- function(mvmfd_obj, n, alpha, centerfns, penalty_type) {
   for (k in 1:p) {
     bbbb <- rbind(bbbb, pc[[k]])
   }
-  return(list(pc, lsv, variance, GCV_result, GCVs))
+  return(list(pc, lsv, variance, GCV_result, 0))
 }

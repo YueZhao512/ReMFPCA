@@ -55,11 +55,23 @@
 #' @export
 remfpca <- R6::R6Class("remfpca",
                              public = list(
-                               initialize = function(mvmfd_obj, method = "power", ncomp, smooth_tuning = NULL,sparse_tuning = 0, centerfns = TRUE, alpha_orth = FALSE,smooth_tuning_type = "coefpen",sparse_tuning_type = "SCAD",K_fold = 30,cv_type = "marginal") {
-                                 if (is.numeric(smooth_tuning)) smooth_tuning <- as.list(smooth_tuning)
+                               # initialize = function(mvmfd_obj, method = "power", ncomp, smooth_tuning = NULL,sparse_tuning = 0, centerfns = TRUE, alpha_orth = FALSE,smoothing_type = "coefpen",sparse_type = "soft",K_fold = 30,sparsity_CV = "marginal") {
+                               initialize = function(mvmfd_obj, method = "power", ncomp, smooth_tuning = NULL,sparse_tuning = 0, centerfns = TRUE, alpha_orth = FALSE,smoothing_type = "coefpen",sparse_type = "soft",K_fold = 30,sparse_CV,smooth_GCV) {
+                                 # if (is.numeric(smooth_tuning)) smooth_tuning <- as.list(smooth_tuning)
+                                 # if (is.vector(smooth_tuning)) smooth_tuning <- as.list(smooth_tuning)
+                                 if (is.vector(smooth_tuning)&& !is.list(smooth_tuning)) smooth_tuning <- list(smooth_tuning)
                                  if (is.mfd(mvmfd_obj)) mvmfd_obj <- mvmfd$new(mvmfd_obj)
-                                 if (method == "power") {
-                                   result <- s_power_algorithm(mvmfd_obj = mvmfd_obj, n = ncomp, smooth_tuning = smooth_tuning,sparse_tuning=sparse_tuning, centerfns = centerfns, alpha_orth = alpha_orth,smooth_tuning_type = smooth_tuning_type,sparse_tuning_type = sparse_tuning_type,K_fold = K_fold,cv_type)
+                                 
+                                 if (method == "power" & alpha_orth == "FALSE") {
+                                   if (smooth_GCV == FALSE & !all(dim(smooth_tuning) == c(mvmfd_obj$nvar,ncomp))) stop("Dimension of smooth_tuning is incorrect", call. = FALSE)
+                                   if (sparse_CV == FALSE & length(sparse_tuning) != ncomp) stop("Dimension of sparse_tuning is incorrect", call. = FALSE)
+                                   result <- ss_power_algorithm_sequential(mvmfd_obj = mvmfd_obj, n = ncomp, smooth_tuning = smooth_tuning,sparse_tuning=sparse_tuning, centerfns = centerfns, alpha_orth = alpha_orth,smooth_tuning_type = smoothing_type,sparse_tuning_type = sparse_type,K_fold = K_fold,sparse_CV,smooth_GCV)
+                                     # result <- ss_power_algorithm_sequential(mvmfd_obj = mvmfd_obj, n = ncomp, smooth_tuning = smooth_tuning,sparse_tuning=sparse_tuning, centerfns = centerfns, alpha_orth = alpha_orth,smooth_tuning_type = smoothing_type,sparse_tuning_type = sparse_type,K_fold = K_fold,smooth_tuning_mode,sparse_tuning_mode,sparse_CV,smooth_GCV)
+                                 } else if (method == "power" & alpha_orth == "TRUE") {
+                                   # result <- ss_power_algorithm_joint(mvmfd_obj = mvmfd_obj, n = ncomp, smooth_tuning = smooth_tuning,sparse_tuning=sparse_tuning, centerfns = centerfns, alpha_orth = alpha_orth,smooth_tuning_type = smoothing_type,sparse_tuning_type = sparse_type,K_fold = K_fold,cv_type = sparsity_CV)
+                                   result <- ss_power_algorithm_joint(mvmfd_obj = mvmfd_obj, n = ncomp, smooth_tuning = smooth_tuning,sparse_tuning=0, centerfns = centerfns, alpha_orth = alpha_orth,smooth_tuning_type = smoothing_type,sparse_tuning_type = "soft",K_fold = K_fold)
+                                 } else if (method == "eigen" ) {
+                                   result <- eigen_approach(mvmfd_obj = mvmfd_obj, n = ncomp, alpha = smooth_tuning, centerfns = centerfns, penalty_type = smoothing_type)
                                  }
                                  coef <- result[[1]]
                                  pcmfd <- list()
@@ -154,7 +166,7 @@ remfpca <- R6::R6Class("remfpca",
 #' @param alpha_orth Logical indicating whether to perform orthogonalization of the regularization parameters.
 #' @param penalty_type The type of penalty to be applied on the coefficients. The types "coefpen" and "basispen" is supported. Default is "coefpen".
 #' @export
-Remfpca <- function(mvmfd_obj, method = "power", ncomp, smooth_tuning = NULL,sparse_tuning, centerfns = TRUE, alpha_orth = FALSE,smooth_tuning_type = "coefpen",sparse_tuning_type = "soft",K_fold=30,cv_type = "marginal") {
-  remfpca$new(mvmfd_obj, method, ncomp, smooth_tuning,sparse_tuning, centerfns, alpha_orth,smooth_tuning_type,sparse_tuning_type,K_fold,cv_type)
+Remfpca <- function(mvmfd_obj, method = "power", ncomp, smooth_tuning = NULL,sparse_tuning, centerfns = TRUE, alpha_orth = FALSE,smoothing_type = "coefpen",sparse_type = "soft",K_fold=30,sparse_CV = TRUE,smooth_GCV = TRUE) {
+  remfpca$new(mvmfd_obj, method, ncomp, smooth_tuning,sparse_tuning, centerfns, alpha_orth,smoothing_type,sparse_type,K_fold,sparse_CV,smooth_GCV)
 }
 #' @rdname remfpca
