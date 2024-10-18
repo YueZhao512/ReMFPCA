@@ -55,8 +55,8 @@
 #' @export
 remfpca <- R6::R6Class("remfpca",
                              public = list(
-                               # initialize = function(mvmfd_obj, method = "power", ncomp, smooth_tuning = NULL,sparse_tuning = 0, centerfns = TRUE, alpha_orth = FALSE,smoothing_type = "coefpen",sparse_type = "soft",K_fold = 30,sparsity_CV = "marginal") {
-                               initialize = function(mvmfd_obj, method = "power", ncomp, smooth_tuning = NULL,sparse_tuning = 0, centerfns = TRUE, alpha_orth = FALSE,smoothing_type = "coefpen",sparse_type = "soft",K_fold = 30,sparse_CV,smooth_GCV) {
+                               # initialize = function(mvmfd_obj, method = "power", ncomp, smooth_tuning = NULL, sparse_tuning = 0, centerfns = TRUE, alpha_orth = FALSE, smoothing_type = "coefpen", sparse_type = "soft", K_fold = 30, sparsity_CV = "marginal") {
+                               initialize = function(mvmfd_obj, method = "power", ncomp, smooth_tuning = NULL, sparse_tuning = 0, centerfns = TRUE, alpha_orth = FALSE, smoothing_type = "coefpen", sparse_type = "soft", K_fold = 30, sparse_CV, smooth_GCV) {
                                  # if (is.numeric(smooth_tuning)) smooth_tuning <- as.list(smooth_tuning)
                                  # if (is.vector(smooth_tuning)) smooth_tuning <- as.list(smooth_tuning)
                                  # if (is.vector(smooth_tuning)&& !is.list(smooth_tuning)) smooth_tuning <- list(smooth_tuning)
@@ -81,7 +81,7 @@ remfpca <- R6::R6Class("remfpca",
                                    # Adjust the matrix to match the required dimensions if they are incorrect
                                    else if (is.matrix(smooth_tuning)) {
                                      if (smooth_GCV == FALSE) {
-                                     if (!all(dim(smooth_tuning) == c(mvmfd_obj$nvar,ncomp))) {
+                                     if (!all(dim(smooth_tuning) == c(mvmfd_obj$nvar, ncomp))) {
                                        smooth_tuning <- smooth_tuning[rep(1:nrow(smooth_tuning), length.out = mvmfd_obj$nvar), rep(1:ncol(smooth_tuning), length.out = ncomp)]
                                        # print(smooth_tuning)
                                        smooth_tuning <- split(smooth_tuning, row(smooth_tuning))
@@ -136,7 +136,7 @@ remfpca <- R6::R6Class("remfpca",
                                      sparse_tuning <- rep(sparse_tuning, length.out = ncomp)
                                    }
                                    
-                                   result <- ss_power_algorithm_sequential(mvmfd_obj = mvmfd_obj, n = ncomp, smooth_tuning = smooth_tuning,sparse_tuning=sparse_tuning, centerfns = centerfns, alpha_orth = alpha_orth,smooth_tuning_type = smoothing_type,sparse_tuning_type = sparse_type,K_fold = K_fold,sparse_CV,smooth_GCV)
+                                   result <- ss_power_algorithm_sequential(mvmfd_obj = mvmfd_obj, n = ncomp, smooth_tuning = smooth_tuning, sparse_tuning=sparse_tuning, centerfns = centerfns, alpha_orth = alpha_orth, smooth_tuning_type = smoothing_type, sparse_tuning_type = sparse_type, K_fold = K_fold, sparse_CV, smooth_GCV)
                                  } 
                                  
                                  else if (method == "power" & alpha_orth == "TRUE") {
@@ -158,7 +158,7 @@ remfpca <- R6::R6Class("remfpca",
                                    # Adjust the matrix to match the required if they are incorrect
                                    else if (is.matrix(smooth_tuning)) {
                                      if (smooth_GCV == FALSE) {
-                                     if (!all(dim(smooth_tuning) == c(mvmfd_obj$nvar,1))) {
+                                     if (!all(dim(smooth_tuning) == c(mvmfd_obj$nvar, 1))) {
                                        smooth_tuning <- smooth_tuning[rep(1:nrow(smooth_tuning), length.out = mvmfd_obj$nvar), rep(1:ncol(smooth_tuning), length.out = 1)]
                                        smooth_tuning <- as.list(smooth_tuning)
                                        warning("The dimensions of 'smooth_tuning' did not match the expected size and have been adjusted accordingly.", call. = FALSE)
@@ -202,7 +202,7 @@ remfpca <- R6::R6Class("remfpca",
                                    }
                                    names(smooth_tuning) <- paste0("var", 1:mvmfd_obj$nvar)
                                    
-                                   result <- ss_power_algorithm_joint(mvmfd_obj = mvmfd_obj, n = ncomp, smooth_tuning = smooth_tuning,centerfns = centerfns, alpha_orth = alpha_orth,smooth_tuning_type = smoothing_type)
+                                   result <- ss_power_algorithm_joint(mvmfd_obj = mvmfd_obj, n = ncomp, smooth_tuning = smooth_tuning, centerfns = centerfns, alpha_orth = alpha_orth, smooth_tuning_type = smoothing_type)
                                  } else if (method == "eigen" ) {
                                    result <- eigen_approach(mvmfd_obj = mvmfd_obj, n = ncomp, alpha = smooth_tuning, centerfns = centerfns, penalty_type = smoothing_type)
                                  }
@@ -302,7 +302,7 @@ remfpca <- R6::R6Class("remfpca",
 #' @param alpha_orth Logical indicating whether to perform orthogonalization of the regularization parameters.
 #' @param penalty_type The type of penalty to be applied on the coefficients. The types "coefpen" and "basispen" is supported. Default is "coefpen".
 #' @export
-Remfpca <- function(mvmfd_obj, method = "power", ncomp, smooth_tuning = NULL,sparse_tuning, centerfns = TRUE, alpha_orth = FALSE,smoothing_type = "coefpen",sparse_type = "soft",K_fold=30,sparse_CV = TRUE,smooth_GCV = TRUE) {
-  remfpca$new(mvmfd_obj, method, ncomp, smooth_tuning,sparse_tuning, centerfns, alpha_orth,smoothing_type,sparse_type,K_fold,sparse_CV,smooth_GCV)
+Remfpca <- function(mvmfd_obj, method = "power", ncomp, smooth_tuning = NULL, sparse_tuning, centerfns = TRUE, alpha_orth = FALSE, smoothing_type = "coefpen", sparse_type = "soft", K_fold=30, sparse_CV = TRUE, smooth_GCV = TRUE) {
+  remfpca$new(mvmfd_obj, method, ncomp, smooth_tuning, sparse_tuning, centerfns, alpha_orth, smoothing_type, sparse_type, K_fold, sparse_CV, smooth_GCV)
 }
 #' @rdname remfpca
