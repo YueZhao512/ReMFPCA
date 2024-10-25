@@ -136,7 +136,7 @@ remfpca <- R6::R6Class("remfpca",
                                      sparse_tuning <- rep(sparse_tuning, length.out = ncomp)
                                    }
                                    
-                                   result <- ss_power_algorithm_sequential(mvmfd_obj = mvmfd_obj, n = ncomp, smooth_tuning = smooth_tuning, sparse_tuning=sparse_tuning, centerfns = centerfns, alpha_orth = alpha_orth, smooth_tuning_type = smoothing_type, sparse_tuning_type = sparse_type, K_fold = K_fold, sparse_CV, smooth_GCV)
+                                   result <- sequential_power(mvmfd_obj = mvmfd_obj, n = ncomp, smooth_tuning = smooth_tuning, sparse_tuning=sparse_tuning, centerfns = centerfns, alpha_orth = alpha_orth, smooth_tuning_type = smoothing_type, sparse_tuning_type = sparse_type, K_fold = K_fold, sparse_CV, smooth_GCV)
                                  } 
                                  
                                  else if (method == "power" & alpha_orth == "TRUE") {
@@ -202,7 +202,7 @@ remfpca <- R6::R6Class("remfpca",
                                    }
                                    names(smooth_tuning) <- paste0("var", 1:mvmfd_obj$nvar)
                                    
-                                   result <- ss_power_algorithm_joint(mvmfd_obj = mvmfd_obj, n = ncomp, smooth_tuning = smooth_tuning, centerfns = centerfns, alpha_orth = alpha_orth, smooth_tuning_type = smoothing_type)
+                                   result <- joint_power(mvmfd_obj = mvmfd_obj, n = ncomp, smooth_tuning = smooth_tuning, centerfns = centerfns, alpha_orth = alpha_orth, smooth_tuning_type = smoothing_type)
                                  } else if (method == "eigen" ) {
                                    result <- eigen_approach(mvmfd_obj = mvmfd_obj, n = ncomp, alpha = smooth_tuning, centerfns = centerfns, penalty_type = smoothing_type)
                                  }
@@ -227,6 +227,10 @@ remfpca <- R6::R6Class("remfpca",
                                  private$.smooth_tuning <- result[[4]]
                                  if (alpha_orth == "FALSE") {
                                    private$.sparse_tuning <- result[[5]]
+                                   private$.CVs <- result[[6]]
+                                   private$.GCVs <- result[[7]]
+                                 } else{
+                                   private$.GCVs <- result[[5]]
                                  }
                                  # private$.sparse_tuning <- result[[5]]
                                  private$.mean_mfd <- mean(mvmfd_obj)
@@ -265,7 +269,21 @@ remfpca <- R6::R6Class("remfpca",
                                  if (missing(value)) {
                                    private$.sparse_tuning
                                  } else {
+                                   stop("`$sparse_tuning` is read only", call. = FALSE)
+                                 }
+                               },
+                               GCVs = function(value) {
+                                 if (missing(value)) {
+                                   private$.GCVs
+                                 } else {
                                    stop("`$GCVs` is read only", call. = FALSE)
+                                 }
+                               },
+                               CVs = function(value) {
+                                 if (missing(value)) {
+                                   private$.CVs
+                                 } else {
+                                   stop("`$CVs` is read only", call. = FALSE)
                                  }
                                },
                                mean_mfd = function(value) {
@@ -282,6 +300,8 @@ remfpca <- R6::R6Class("remfpca",
                                .values = NULL,
                                .smooth_tuning = NULL,
                                .sparse_tuning = NULL,
+                               .GCVs = NULL,
+                               .CVs = NULL,
                                .mean_mfd = NULL
                              )
 )
