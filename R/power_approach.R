@@ -1,8 +1,8 @@
 #' @importFrom expm sqrtm
 #' @importFrom utils  txtProgressBar setTxtProgressBar
-
+#' 
 #sparse penalty function
-csparse_pen_fun <- function(y, tuning_parameter, type, alpha = 3.7) {
+sparse_pen_fun <- function(y, tuning_parameter, type, alpha = 3.7) {
   y_sorted <- sort(abs(y))
   lambda = y_sorted[tuning_parameter]
   if (tuning_parameter == 0) {
@@ -25,11 +25,11 @@ csparse_pen_fun <- function(y, tuning_parameter, type, alpha = 3.7) {
 }
 
 #sequential power algorithm 
-power_algo_sequential = function(data, sparse_tuning_result, sparse_tuning_type, S_smooth = NULL, S_2_inverse = NULL, G_half_inverse = NULL, G_half = NULL, cv_flag = FALSE){
+init_sequential = function(data, sparse_tuning_result, sparse_tuning_type, S_smooth = NULL, S_2_inverse = NULL, G_half_inverse = NULL, G_half = NULL, cv_flag = FALSE){
   b_old = svd(data)$v[, 1]
   errors = 10^60
   while (errors > 0.00001) {
-    v_new = csparse_pen_fun(y = data%*%b_old, tuning_parameter = sparse_tuning_result, sparse_tuning_type)
+    v_new = sparse_pen_fun(y = data%*%b_old, tuning_parameter = sparse_tuning_result, sparse_tuning_type)
     if (cv_flag == TRUE) { #incorporate power algorithm in CV sparse tuning selection
       b_new = t(data)%*%v_new
       b_new = b_new / norm(b_new, type = "2")
@@ -56,7 +56,7 @@ power_algo_sequential = function(data, sparse_tuning_result, sparse_tuning_type,
 }
 
 #joint power for smoothing
-power_algo_joint = function(data, S_smooth = NULL, S_2_inverse = NULL, G_half_inverse = NULL, G_half = NULL, n = n){
+init_joint = function(data, S_smooth = NULL, S_2_inverse = NULL, G_half_inverse = NULL, G_half = NULL, n = n){
   b_old = svd(data)$v[, 1:n]
   errors = 10^60
   while (errors > 0.00001) {
@@ -76,14 +76,14 @@ power_algo_joint = function(data, S_smooth = NULL, S_2_inverse = NULL, G_half_in
 
 
 #computing cv score for sparse tuning
-cv_score_sparse_sequential = function(data, G_half, K_fold, sparse_tuning_single, sparse_tuning_type, shuffled_row, group_size){
+cv_local = function(data, G_half, K_fold, sparse_tuning_single, sparse_tuning_type, shuffled_row, group_size){
   data_double_tilde = t(data%*%G_half)
   error_score_sparse = 0
   for (k in 1:K_fold) {
     rows_to_remove = shuffled_row[((k-1)*group_size+1):((k)*group_size)]
     data_train = data_double_tilde[-rows_to_remove, ]
     data_test = data_double_tilde[rows_to_remove, ]
-    v_test = power_algo_sequential(t(data_train), sparse_tuning_single, sparse_tuning_type, cv_flag = TRUE)
+    v_test = init_sequential(t(data_train), sparse_tuning_single, sparse_tuning_type, cv_flag = TRUE)
     b_test = data_test%*%v_test
     b_test_smooth_back = (data_double_tilde%*%v_test)[rows_to_remove, ]
     data_test_smooth_back = t(data_double_tilde)[, rows_to_remove]
@@ -93,7 +93,7 @@ cv_score_sparse_sequential = function(data, G_half, K_fold, sparse_tuning_single
 }
 
 #computing gcv score for smoothing tuning
-gcv_score_smooth = function(data, mvmfd_obj, G, G_half, S_smooth, v, smooth_tuning) {
+gcv_local = function(data, mvmfd_obj, G, G_half, S_smooth, v, smooth_tuning) {
   p = mvmfd_obj$nvar
   indices <- sapply(1:p, function(i) prod(mvmfd_obj$basis$nbasis[[i]]))
   B_subtilde = data %*% G_half
@@ -123,7 +123,7 @@ gcv_score_smooth = function(data, mvmfd_obj, G, G_half, S_smooth, v, smooth_tuni
 
 
 # cv and gcv tuning selection process in sequential power
-conditional_cv_sequential = function(data, mvmfd_obj, smooth_tuning, sparse_tuning, sparse_tuning_type, K_fold, G, G_half, G_half_inverse, S_smooth, S_2_inverse){
+cv_gcv_sequential = function(data, mvmfd_obj, smooth_tuning, sparse_tuning, sparse_tuning_type, K_fold, G, G_half, G_half_inverse, S_smooth, S_2_inverse){
   CV_score_sparse = CV_score_smooth = 10^60
   result = c()
   count = 0
@@ -136,50 +136,41 @@ conditional_cv_sequential = function(data, mvmfd_obj, smooth_tuning, sparse_tuni
                        width = 50,   # Progress bar width. Defaults to getOption("width")
                        char = "=")   # Character used to create the bar
 
-  if (length(sparse_tuning) == 1) {
-    count = count +1
-    setTxtProgressBar(pb, count)
-    sparse_tuning_selection = sparse_tuning
-  } else{
+  cv_scores = gcv_scores = c()
   for (sparse_tuning_single in sparse_tuning) {
     count = count +1
     setTxtProgressBar(pb, count)
-    sparse_score = cv_score_sparse_sequential(data, G_half, K_fold, sparse_tuning_single, sparse_tuning_type, shuffled_row, group_size)
+    sparse_score = cv_local(data, G_half, K_fold, sparse_tuning_single, sparse_tuning_type, shuffled_row, group_size)
+    cv_scores = c(cv_scores, sparse_score) 
     if (sparse_score <= CV_score_sparse) {
       CV_score_sparse = sparse_score
       sparse_tuning_selection = sparse_tuning_single
     }
   }
-  }
-  if (dim(smooth_tuning)[1] == 1) {
-    count = count +1
-    setTxtProgressBar(pb, count)
-    smooth_tuning_selection = smooth_tuning[1, ]
-    index_selection = 1
-  } else{
   for (smooth_index in 1:dim(smooth_tuning)[1]) {
     count = count + 1
     setTxtProgressBar(pb, count)
     if (all(smooth_tuning == 0)) {
       S_smooth[[smooth_index]] = diag(dim(G)[1])
     }
-    test_temp = power_algo_sequential(data%*%G_half, sparse_tuning_selection, sparse_tuning_type, S_smooth[[smooth_index]], S_2_inverse[[smooth_index]], G_half_inverse, G_half)
+    test_temp = init_sequential(data%*%G_half, sparse_tuning_selection, sparse_tuning_type, S_smooth[[smooth_index]], S_2_inverse[[smooth_index]], G_half_inverse, G_half)
     v_temp = test_temp[[2]]
-    smooth_score = gcv_score_smooth(data, mvmfd_obj, G, G_half, S_smooth[[smooth_index]], v_temp, smooth_tuning=smooth_tuning[smooth_index, ])
+    smooth_score = gcv_local(data, mvmfd_obj, G, G_half, S_smooth[[smooth_index]], v_temp, smooth_tuning=smooth_tuning[smooth_index, ])
+    gcv_scores = c(gcv_scores,smooth_score)
     if (smooth_score <= CV_score_smooth) {
       CV_score_smooth = smooth_score
       smooth_tuning_selection = smooth_tuning[smooth_index, ]
       index_selection = smooth_index
     }
   }
-  }
+  # }
   close(pb) # Close the connection
-  result = list(sparse_tuning_selection, smooth_tuning_selection, index_selection)
+  result = list(sparse_tuning_selection, smooth_tuning_selection, index_selection, cv_scores, gcv_scores)
   return(result)
 }
 
 # gcv tuning selection process in joint power
-conditional_cv_joint = function(data, mvmfd_obj, smooth_tuning, G, G_half, G_half_inverse, S_smooth, S_2_inverse, n){
+gcv_joint = function(data, mvmfd_obj, smooth_tuning, G, G_half, G_half_inverse, S_smooth, S_2_inverse, n){
   CV_score_smooth = 10^60
   result = c()
   count = 0
@@ -189,15 +180,17 @@ conditional_cv_joint = function(data, mvmfd_obj, smooth_tuning, G, G_half, G_hal
                        style = 3,    # Progress bar style (also available style = 1 and style = 2)
                        width = 50,   # Progress bar width. Defaults to getOption("width")
                        char = "=")   # Character used to create the bar
+  gcv_scores = c()
   for (smooth_index in 1:dim(smooth_tuning)[1]) {
   count = count + 1
   setTxtProgressBar(pb, count)
   if (all(smooth_tuning == 0)) {
     S_smooth[[smooth_index]] = diag(dim(G)[1])
   }
-  test_temp = power_algo_joint(data%*%G_half, S_smooth[[smooth_index]], S_2_inverse[[smooth_index]], G_half_inverse, G_half, n = n)
+  test_temp = init_joint(data%*%G_half, S_smooth[[smooth_index]], S_2_inverse[[smooth_index]], G_half_inverse, G_half, n = n)
   v_temp = test_temp[[2]]
-  smooth_score = gcv_score_smooth(data, mvmfd_obj, G, G_half, S_smooth[[smooth_index]], v_temp, smooth_tuning=smooth_tuning[smooth_index, ])
+  smooth_score = gcv_local(data, mvmfd_obj, G, G_half, S_smooth[[smooth_index]], v_temp, smooth_tuning=smooth_tuning[smooth_index, ])
+  gcv_scores = c(gcv_scores, smooth_score)
   if (smooth_score <= CV_score_smooth) {
     CV_score_smooth = smooth_score
     smooth_tuning_selection = smooth_tuning[smooth_index, ]
@@ -205,12 +198,12 @@ conditional_cv_joint = function(data, mvmfd_obj, smooth_tuning, G, G_half, G_hal
   }
   }
   close(pb) # Close the connection
-  result = list(smooth_tuning_selection, index_selection)
+  result = list(smooth_tuning_selection, index_selection, gcv_scores)
   return(result)
 }
 
 
-ordinal <- function(i) {
+ordinal_msg <- function(i) {
   if (i == 1) {
     return(paste0(i, "st"))
   } else if (i == 2) {
@@ -224,7 +217,7 @@ ordinal <- function(i) {
 }
 
 # Define a function to process mvmfd_obj
-process_mvmfd <- function(mvmfd_obj, centerfns = TRUE) {
+centralized_mvmfd <- function(mvmfd_obj, centerfns = TRUE) {
   p <- mvmfd_obj$nvar
   B <- c()
   
@@ -245,12 +238,12 @@ process_mvmfd <- function(mvmfd_obj, centerfns = TRUE) {
 }
 
 # sequential power algorithm
-ss_power_algorithm_sequential <- function(mvmfd_obj, n, smooth_tuning, smooth_tuning_type, sparse_tuning, sparse_tuning_type, centerfns, alpha_orth, K_fold, sparse_CV, smooth_GCV) {
+sequential_power <- function(mvmfd_obj, n, smooth_tuning, smooth_tuning_type, sparse_tuning, sparse_tuning_type, centerfns, alpha_orth, K_fold, sparse_CV, smooth_GCV) {
   p <- mvmfd_obj$nvar
   smooth_penalty <- ReMFPCA:::pen_fun(mvmfd_obj, type = smooth_tuning_type)
 
   #######centralize########
-  B <- process_mvmfd(mvmfd_obj, centerfns)
+  B <- centralized_mvmfd(mvmfd_obj, centerfns)
   ########some initial setting#######
   B <- t(B)
   lsv <- c()
@@ -261,13 +254,24 @@ ss_power_algorithm_sequential <- function(mvmfd_obj, n, smooth_tuning, smooth_tu
   G <- as.matrix(mvmfd_obj$basis$gram)
   G_half <- sqrtm(G)
   G_half_inverse = solve(G_half)
+  if (is.null(smooth_tuning)) {
+    for (i in 1:p) {
+      smooth_tuning <- c(smooth_tuning, list(2^seq(-20, 20, length.out = 10)))
+    }
+  }
   
   #########matrix input of smoothing parameters###########
   if (smooth_GCV == FALSE) {
     b_total = v_total = c()
     I_a <- D <- S_2 <- S_smooth <- S_2_inverse <- list()
+    GCV_score = c()
+    if(sparse_CV == FALSE){
+      CV_score = c()
+    } else{
+      CV_score = list()
+    }
     for (i in 1:n) {
-      cat(sprintf("Computing the %s PC...\n", ordinal(i)))
+      cat(sprintf("Computing the %s PC...\n", ordinal_msg(i)))
       smooth_tuning_temp = expand.grid(lapply(smooth_tuning, function(x) x[i]))
       if (i == 1) {
         B_temp = B
@@ -287,10 +291,16 @@ ss_power_algorithm_sequential <- function(mvmfd_obj, n, smooth_tuning, smooth_tu
       } else{
         sparse_tuning_temp = sparse_tuning
       }
-      cv_result = conditional_cv_sequential(data = B_temp, mvmfd_obj = mvmfd_obj, smooth_tuning = smooth_tuning_temp, sparse_tuning = sparse_tuning_temp, sparse_tuning_type = sparse_tuning_type, K_fold = K_fold, G = G, G_half = G_half, G_half_inverse = G_half_inverse, S_smooth = S_smooth, S_2_inverse = S_2_inverse)
+      cv_result = cv_gcv_sequential(data = B_temp, mvmfd_obj = mvmfd_obj, smooth_tuning = smooth_tuning_temp, sparse_tuning = sparse_tuning_temp, sparse_tuning_type = sparse_tuning_type, K_fold = K_fold, G = G, G_half = G_half, G_half_inverse = G_half_inverse, S_smooth = S_smooth, S_2_inverse = S_2_inverse)
       sparse_result = cv_result[[1]]
       smooth_result_index = cv_result[[3]]
-      test_result = power_algo_sequential(B_temp%*%G_half, sparse_result, sparse_tuning_type, S_smooth[[1]], S_2_inverse[[1]], G_half_inverse, G_half)
+      if (sparse_CV == FALSE) {
+        CV_score = c(CV_score, cv_result[[4]])
+      } else{
+        CV_score[[i]] = cv_result[[4]]
+      }
+      GCV_score = c(GCV_score, cv_result[[5]])
+      test_result = init_sequential(B_temp%*%G_half, sparse_result, sparse_tuning_type, S_smooth[[1]], S_2_inverse[[1]], G_half_inverse, G_half)
       
       v = test_result[[2]]
       b = test_result[[1]]
@@ -326,11 +336,6 @@ ss_power_algorithm_sequential <- function(mvmfd_obj, n, smooth_tuning, smooth_tu
   } 
   #########sequential inputs of smoothing parameters###########
   else{
-    if (is.null(smooth_tuning)) {
-      for (i in 1:p) {
-        smooth_tuning <- c(smooth_tuning, list(2^seq(-20, 20, length.out = 10)))
-      }
-    }
     smooth_tuning <- expand.grid(smooth_tuning)
     
     I_a <- D <- S_2 <- S_smooth <- S_2_inverse <- list()
@@ -352,8 +357,14 @@ ss_power_algorithm_sequential <- function(mvmfd_obj, n, smooth_tuning, smooth_tu
     }
     close(pb)
     b_total = v_total = c()
+    GCV_score = list()
+    if(sparse_CV == FALSE){
+      CV_score = c()
+    } else{
+      CV_score = list()
+    }
     for (i in 1:n) {
-      cat(sprintf("Computing the %s PC...\n", ordinal(i)))
+      cat(sprintf("Computing the %s PC...\n", ordinal_msg(i)))
       if (i == 1) {
         B_temp = B
       } 
@@ -368,10 +379,16 @@ ss_power_algorithm_sequential <- function(mvmfd_obj, n, smooth_tuning, smooth_tu
         sparse_tuning_temp = sparse_tuning
       }
       
-      cv_result = conditional_cv_sequential(data = B_temp, mvmfd_obj = mvmfd_obj, smooth_tuning = smooth_tuning, sparse_tuning = sparse_tuning_temp, sparse_tuning_type = sparse_tuning_type, K_fold = K_fold, G = G, G_half = G_half, G_half_inverse = G_half_inverse, S_smooth = S_smooth, S_2_inverse = S_2_inverse)
+      cv_result = cv_gcv_sequential(data = B_temp, mvmfd_obj = mvmfd_obj, smooth_tuning = smooth_tuning, sparse_tuning = sparse_tuning_temp, sparse_tuning_type = sparse_tuning_type, K_fold = K_fold, G = G, G_half = G_half, G_half_inverse = G_half_inverse, S_smooth = S_smooth, S_2_inverse = S_2_inverse)
       sparse_result = cv_result[[1]]
       smooth_result_index = cv_result[[3]]
-      test_result = power_algo_sequential(B_temp%*%G_half, sparse_result, sparse_tuning_type, S_smooth[[smooth_result_index]], S_2_inverse[[smooth_result_index]], G_half_inverse, G_half)
+      if (sparse_CV == FALSE) {
+        CV_score = c(CV_score, cv_result[[4]])
+      } else{
+        CV_score[[i]] = cv_result[[4]]
+      }
+      GCV_score[[i]] = cv_result[[5]]
+      test_result = init_sequential(B_temp%*%G_half, sparse_result, sparse_tuning_type, S_smooth[[smooth_result_index]], S_2_inverse[[smooth_result_index]], G_half_inverse, G_half)
       
       v = test_result[[2]]
       b = test_result[[1]]
@@ -406,17 +423,17 @@ ss_power_algorithm_sequential <- function(mvmfd_obj, n, smooth_tuning, smooth_tu
       
     }
   }
-  return(list(pc, lsv, variance, smooth_tuning_result, sparse_tuning_result))
+  return(list(pc, lsv, variance, smooth_tuning_result, sparse_tuning_result, CV_score, GCV_score))
 } 
 
 
 # joint smooth and sparse power algorithm
-ss_power_algorithm_joint <- function(mvmfd_obj, n, smooth_tuning, smooth_tuning_type, centerfns, alpha_orth) {
+joint_power <- function(mvmfd_obj, n, smooth_tuning, smooth_tuning_type, centerfns, alpha_orth) {
   p <- mvmfd_obj$nvar
   smooth_penalty <- ReMFPCA:::pen_fun(mvmfd_obj, type = smooth_tuning_type)
   
   #######centralize########
-  B <- process_mvmfd(mvmfd_obj, centerfns)
+  B <- centralized_mvmfd(mvmfd_obj, centerfns)
   #########################
   
   ########some initial setting#######
@@ -460,9 +477,10 @@ ss_power_algorithm_joint <- function(mvmfd_obj, n, smooth_tuning, smooth_tuning_
   }
   close(pb)
   cat(sprintf("Computing PCs...\n"))
-  cv_result = conditional_cv_joint(data = B, mvmfd_obj = mvmfd_obj, smooth_tuning = smooth_tuning, G = G, G_half = G_half, G_half_inverse = G_half_inverse, S_smooth = S_smooth, S_2_inverse = S_2_inverse, n = n)
+  cv_result = gcv_joint(data = B, mvmfd_obj = mvmfd_obj, smooth_tuning = smooth_tuning, G = G, G_half = G_half, G_half_inverse = G_half_inverse, S_smooth = S_smooth, S_2_inverse = S_2_inverse, n = n)
   smooth_result_index = cv_result[[2]]
-  test_result = power_algo_joint(B%*%G_half, S_smooth[[smooth_result_index]], S_2_inverse[[smooth_result_index]], G_half_inverse, G_half, n = n)
+  GCV_score = cv_result[[3]]
+  test_result = init_joint(B%*%G_half, S_smooth[[smooth_result_index]], S_2_inverse[[smooth_result_index]], G_half_inverse, G_half, n = n)
   v = test_result[[2]]
   b = test_result[[1]]
   smooth_tuning_result = smooth_tuning[smooth_result_index, ]
@@ -492,5 +510,5 @@ ss_power_algorithm_joint <- function(mvmfd_obj, n, smooth_tuning, smooth_tuning_
       variance[k] = (total_variance - total_variance_previous) / (mvmfd_obj$nobs - 1)
     }
   }
-  return(list(pc, lsv, variance, smooth_tuning_result))
+  return(list(pc, lsv, variance, smooth_tuning_result, GCV_score))
 } 
