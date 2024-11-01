@@ -7,26 +7,56 @@
 \usage{
 Remfpca(
   mvmfd_obj,
+  method = "power",
   ncomp,
-  alpha = NULL,
+  smooth_tuning = NULL,
+  sparse_tuning,
   centerfns = TRUE,
-  alpha_orth = TRUE,
-  penalty_type = "coefpen"
+  alpha_orth = FALSE,
+  smoothing_type = "coefpen",
+  sparse_type = "soft",
+  K_fold = 30,
+  sparse_CV = TRUE,
+  smooth_GCV = TRUE
 )
 }
 \arguments{
 \item{mvmfd_obj}{An `mvmfd` object representing the multivariate functional data.}
 
+\item{method}{A character string specifying the approach to be used for MFPCA computation. 
+Options are "power" (the default), which uses the power algorithm, or "eigen", 
+which uses the eigen decomposition approach.}
+
 \item{ncomp}{The number of functional principal components to retain.}
 
-\item{alpha}{A list or vector specifying the regularization parameter(s) for each variable.
-If NULL, the regularization parameter is estimated internally.}
+\item{smooth_tuning}{A list or vector specifying the smoothing regularization parameter(s) for each variable. 
+If NULL, non-smoothing MFPCA is estimated.}
+
+\item{sparse_tuning}{A list or vector specifying the sparsity regularization parameter(s) for each variable. 
+If NULL, non-sparse MFPCA is estimated.}
 
 \item{centerfns}{Logical indicating whether to center the functional data before analysis.}
 
-\item{alpha_orth}{Logical indicating whether to perform orthogonalization of the regularization parameters.}
+\item{alpha_orth}{Logical indicating whether to perform orthogonalization of the regularization parameters. 
+If `method` is "power", setting `alpha_orth = FALSE` (default) uses the sequential power approach, 
+while setting `alpha_orth = TRUE` uses the joint power approach.}
 
-\item{penalty_type}{The type of penalty to be applied on the coefficients. The types "coefpen" and "basispen" is supported. Default is "coefpen".}
+\item{smoothing_type}{The type of smoothing penalty to be applied on the coefficients. The types "coefpen" and "basispen" is supported. Default is "coefpen".}
+
+\item{sparse_type}{The type of sparse penalty to be applied on the coefficients. The types "soft-threshold", "hard-threshold" and "SCAD" is supported. Default is "soft-threshold".}
+
+\item{sparse_CV}{@param sparse_CV Logical indicating whether cross-validation should be applied to select the optimal sparse tuning parameter in sequential power approach. 
+If `sparse_CV = TRUE`, a series of tuning parameters should be provided as a vector with positive number with max equals to number of subjects. 
+If `sparse_CV = FALSE`, specific tuning parameters are given directly. Tuning parameters should be provided as a vector with length equal to `ncomp`.
+If the dimensions of input tuning parameters are incorrect, it will be converted to a list internally, and a warning will be issued.}
+
+\item{smooth_GCV}{@param smooth_GCV Logical indicating whether generalized cross-validation should be applied to select the optimal smooth tuning parameter. 
+If `smooth_GCV = TRUE`, a series of tuning parameters should be provided as a list with length equal to the number of variables. 
+If a list with incorrect dimensions is provided, it will be converted to a correct list internally, and a warning will be issued. 
+If `smooth_GCV = FALSE`, specific tuning parameters are given directly. If `method` is "power" and `alpha_orth = FALSE` (sequential power), 
+tuning parameters should be provided as a list with length equal to the number of variables, where each element is a vector of length `ncomp`. 
+If `method` is "power" and `alpha_orth = TRUE` (joint power), tuning parameters should be provided as a vector with length equal to the number of variables.
+If the dimensions of input tuning parameters are incorrect, it will be converted to a list internally, and a warning will be issued.}
 }
 \description{
 The `remfpca` class represents regularized functional principal components components.
@@ -82,9 +112,16 @@ represents harmonics and  second indices represents variables}
 
 \item{\code{values}}{= the set of eigenvalues}
 
-\item{\code{alpha}}{= The vector of penalties parameters}
+\item{\code{smooth_tuning}}{= The list of smoothing penalties parameters}
 
-\item{\code{GCVs}}{= generalized cross validations}
+\item{\code{sparse_tuning}}{= The list of sparse penalties parameters}
+
+\item{\code{GCVs}}{= generalized cross validations scores of smoothing penalties parameters.
+If both smoothing and sparse tuning penalties are used in the ReMFPCA method, 
+this represents the conditional generalized cross-validation scores, which 
+means it is computed based on the optimal sparse tuning parameter selected via cross validation.}
+
+\item{\code{CVs}}{= cross validations scores of sparse penalties parameters}
 
 \item{\code{mean_mfd}}{a multivariate functional data object giving the mean function}
 }
@@ -104,32 +141,20 @@ represents harmonics and  second indices represents variables}
 \subsection{Usage}{
 \if{html}{\out{<div class="r">}}\preformatted{remfpca$new(
   mvmfd_obj,
+  method = "power",
   ncomp,
-  alpha = NULL,
+  smooth_tuning = NULL,
+  sparse_tuning = 0,
   centerfns = TRUE,
-  alpha_orth = TRUE,
-  penalty_type = "coefpen"
+  alpha_orth = FALSE,
+  smoothing_type = "coefpen",
+  sparse_type = "soft",
+  K_fold = 30,
+  sparse_CV,
+  smooth_GCV
 )}\if{html}{\out{</div>}}
 }
 
-\subsection{Arguments}{
-\if{html}{\out{<div class="arguments">}}
-\describe{
-\item{\code{mvmfd_obj}}{An `mvmfd` object representing the multivariate functional data.}
-
-\item{\code{ncomp}}{The number of functional principal components to retain.}
-
-\item{\code{alpha}}{A list or vector specifying the regularization parameter(s) for each variable.
-If NULL, the regularization parameter is estimated internally.}
-
-\item{\code{centerfns}}{Logical indicating whether to center the functional data before analysis.}
-
-\item{\code{alpha_orth}}{Logical indicating whether to perform orthogonalization of the regularization parameters.}
-
-\item{\code{penalty_type}}{The type of penalty to be applied on the coefficients. The types "coefpen" and "basispen" is supported. Default is "coefpen".}
-}
-\if{html}{\out{</div>}}
-}
 }
 \if{html}{\out{<hr>}}
 \if{html}{\out{<a id="method-remfpca-clone"></a>}}
