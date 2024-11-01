@@ -4,13 +4,18 @@
 #' The `remfpca` class represents regularized functional principal components components.
 #'
 
-#' @field pc_mfd an object of class `mvmfd` where the first indices (fields)
+#' @field pc_mfd An object of class `mvmfd` where the first indices (fields)
 #' represents harmonics and  second indices represents variables
 #' @field lsv = Left singular values vectors
-#' @field values = the set of eigenvalues
-#' @field alpha = The vector of penalties parameters
-#' @field GCVs = generalized cross validations
-#' @field mean_mfd a multivariate functional data object giving the mean function
+#' @field values = The set of eigenvalues
+#' @field smooth_tuning = The list of smoothing penalties parameters
+#' @field sparse_tuning = The list of sparse penalties parameters
+#' @field GCVs = Generalized cross validations scores of smoothing penalties parameters.
+#'               If both smoothing and sparse tuning penalties are used in the ReMFPCA method, 
+#'               this represents the conditional generalized cross-validation scores, which 
+#'               means it is computed based on the optimal sparse tuning parameter selected via cross validation.
+#' @field CVs = Cross validations scores of sparse penalties parameters
+#' @field mean_mfd A multivariate functional data object giving the mean function
 
 #' @examples
 #' require(fda)
@@ -56,7 +61,7 @@
 remfpca <- R6::R6Class("remfpca",
                              public = list(
                                # initialize = function(mvmfd_obj, method = "power", ncomp, smooth_tuning = NULL, sparse_tuning = 0, centerfns = TRUE, alpha_orth = FALSE, smoothing_type = "coefpen", sparse_type = "soft", K_fold = 30, sparsity_CV = "marginal") {
-                               initialize = function(mvmfd_obj, method = "power", ncomp, smooth_tuning = NULL, sparse_tuning = 0, centerfns = TRUE, alpha_orth = FALSE, smoothing_type = "coefpen", sparse_type = "soft", K_fold = 30, sparse_CV, smooth_GCV) {
+                               initialize = function(mvmfd_obj, method = "power", ncomp, smooth_tuning = NULL, sparse_tuning = NULL, centerfns = TRUE, alpha_orth = FALSE, smoothing_type = "coefpen", sparse_type = "soft", K_fold = 30, sparse_CV, smooth_GCV) {
                                  # if (is.numeric(smooth_tuning)) smooth_tuning <- as.list(smooth_tuning)
                                  # if (is.vector(smooth_tuning)) smooth_tuning <- as.list(smooth_tuning)
                                  # if (is.vector(smooth_tuning)&& !is.list(smooth_tuning)) smooth_tuning <- list(smooth_tuning)
@@ -128,10 +133,12 @@ remfpca <- R6::R6Class("remfpca",
                                      }
                                    }
                                    
+                                   if (!is.null(smooth_tuning)) {
                                    names(smooth_tuning) <- paste0("var", 1:mvmfd_obj$nvar)
+                                   }
                                    
                                    # Adjust the list length and element sizes to match the required dimensions if they are incorrect
-                                   if (sparse_CV == FALSE & length(sparse_tuning) != ncomp) {
+                                   if (sparse_CV == FALSE & length(sparse_tuning) != ncomp & !is.null(sparse_tuning)) {
                                      warning("The length of 'sparse_tuning' did not match 'ncomp' and has been adjusted accordingly.", call. = FALSE)
                                      sparse_tuning <- rep(sparse_tuning, length.out = ncomp)
                                    }
@@ -200,7 +207,10 @@ remfpca <- R6::R6Class("remfpca",
                                        }
                                      }
                                    }
-                                   names(smooth_tuning) <- paste0("var", 1:mvmfd_obj$nvar)
+                                   
+                                   if (!is.null(smooth_tuning)) {
+                                     names(smooth_tuning) <- paste0("var", 1:mvmfd_obj$nvar)
+                                   }
                                    
                                    result <- joint_power(mvmfd_obj = mvmfd_obj, n = ncomp, smooth_tuning = smooth_tuning, centerfns = centerfns, alpha_orth = alpha_orth, smooth_tuning_type = smoothing_type)
                                  } else if (method == "eigen" ) {
@@ -315,14 +325,34 @@ remfpca <- R6::R6Class("remfpca",
 #' The `remfpca` class represents regularized functional principal components ('ReMFPCs') components.
 #'
 #' @param mvmfd_obj An `mvmfd` object representing the multivariate functional data.
+#' @param method A character string specifying the approach to be used for MFPCA computation. 
+#'               Options are "power" (the default), which uses the power algorithm, or "eigen", 
+#'               which uses the eigen decomposition approach.
 #' @param ncomp The number of functional principal components to retain.
-#' @param alpha A list or vector specifying the regularization parameter(s) for each variable.
-#'              If NULL, the regularization parameter is estimated internally.
-#' @param centerfns Logical indicating whether to center the functional data before analysis.
-#' @param alpha_orth Logical indicating whether to perform orthogonalization of the regularization parameters.
-#' @param penalty_type The type of penalty to be applied on the coefficients. The types "coefpen" and "basispen" is supported. Default is "coefpen".
+#' @param smooth_tuning A list or vector specifying the smoothing regularization parameter(s) for each variable. 
+#'                      If NULL, non-smoothing MFPCA is estimated.
+#' @param sparse_tuning A list or vector specifying the sparsity regularization parameter(s) for each variable. 
+#'                      If NULL, non-sparse MFPCA is estimated.
+#' @param centerfns Logical indicating whether to center the functional data before analysis. Default is TRUE.
+#' @param alpha_orth Logical indicating whether to perform orthogonalization of the regularization parameters. 
+#'                   If `method` is "power", setting `alpha_orth = FALSE` (default) uses the sequential power approach, 
+#'                   while setting `alpha_orth = TRUE` uses the joint power approach.
+#' @param smoothing_type The type of smoothing penalty to be applied on the coefficients. The types "coefpen" and "basispen" is supported. Default is "coefpen".
+#' @param sparse_type The type of sparse penalty to be applied on the coefficients. The types "soft-threshold", "hard-threshold" and "SCAD" is supported. Default is "soft-threshold".
+#' @param K_fold  An integer specifying the number of folds in the sparse cross-validation process. Default is 30. 
+#' @param sparse_CV @param sparse_CV Logical indicating whether cross-validation should be applied to select the optimal sparse tuning parameter in sequential power approach. 
+#'                                        If `sparse_CV = TRUE`, a series of tuning parameters should be provided as a vector with positive number with max equals to number of subjects. 
+#'                                        If `sparse_CV = FALSE`, specific tuning parameters are given directly to each principal components. Tuning parameters should be provided as a vector with length equal to `ncomp`.
+#'                                        If the dimensions of input tuning parameters are incorrect, it will be converted to a list internally, and a warning will be issued. 
+#' @param smooth_GCV @param smooth_GCV Logical indicating whether generalized cross-validation should be applied to select the optimal smooth tuning parameter. 
+#'                                        If `smooth_GCV = TRUE`, a series of tuning parameters should be provided as a list with length equal to the number of variables. 
+#'                                        If a list with incorrect dimensions is provided, it will be converted to a correct list internally, and a warning will be issued. 
+#'                                        If `smooth_GCV = FALSE`, specific tuning parameters are given directly. If `method` is "power" and `alpha_orth = FALSE` (sequential power), 
+#'                                        tuning parameters should be provided as a list with length equal to the number of variables, where each element is a vector of length `ncomp`. 
+#'                                        If `method` is "power" and `alpha_orth = TRUE` (joint power), tuning parameters should be provided as a vector with length equal to the number of variables.
+#'                                        If the dimensions of input tuning parameters are incorrect, it will be converted to a list internally, and a warning will be issued. 
 #' @export
-Remfpca <- function(mvmfd_obj, method = "power", ncomp, smooth_tuning = NULL, sparse_tuning, centerfns = TRUE, alpha_orth = FALSE, smoothing_type = "coefpen", sparse_type = "soft", K_fold=30, sparse_CV = TRUE, smooth_GCV = TRUE) {
+Remfpca <- function(mvmfd_obj, method = "power", ncomp, smooth_tuning = NULL, sparse_tuning = NULL, centerfns = TRUE, alpha_orth = FALSE, smoothing_type = "coefpen", sparse_type = "soft", K_fold=30, sparse_CV = TRUE, smooth_GCV = TRUE) {
   remfpca$new(mvmfd_obj, method, ncomp, smooth_tuning, sparse_tuning, centerfns, alpha_orth, smoothing_type, sparse_type, K_fold, sparse_CV, smooth_GCV)
 }
 #' @rdname remfpca
