@@ -267,7 +267,6 @@ centralized_mvmfd <- function(mvmfd_obj, centerfns = TRUE) {
 
 # sequential power algorithm
 sequential_power <- function(mvmfd_obj, n, smooth_tuning, smooth_tuning_type, sparse_tuning, sparse_tuning_type, centerfns, alpha_orth, K_fold, sparse_CV, smooth_GCV) {
-  print(smooth_tuning)
   p <- mvmfd_obj$nvar
   smooth_penalty <- ReMFPCA:::pen_fun(mvmfd_obj, type = smooth_tuning_type)
 
@@ -362,7 +361,7 @@ sequential_power <- function(mvmfd_obj, n, smooth_tuning, smooth_tuning_type, sp
       b_total = cbind(b_total, b)
       v_total = cbind(v_total, test_result[[3]])
       
-      if (all(all_equal_check)) { ### PCs are alpha orthogonal
+      if (all(all_equal_check) & (is.null(sparse_tuning) || all(unique(sparse_tuning) == 0))) { ### PCs are alpha orthogonal
         variance[i] <- (norm(B %*% G %*% b, type = "2") / sqrt(mvmfd_obj$nobs - 1))^2
       } else{
       if (i == 1) {
@@ -471,7 +470,7 @@ sequential_power <- function(mvmfd_obj, n, smooth_tuning, smooth_tuning_type, sp
       b_total = cbind(b_total, b)
       v_total = cbind(v_total, test_result[[3]])
       
-      if (all(all_equal_check)) {
+      if (all(all_equal_check) & (is.null(sparse_tuning) || all(unique(sparse_tuning) == 0))) {
         variance[i] <- (norm(B %*% G %*% b, type = "2") / sqrt(mvmfd_obj$nobs - 1))^2
       } else{
       if (i == 1) {
