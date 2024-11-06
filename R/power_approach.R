@@ -267,6 +267,7 @@ centralized_mvmfd <- function(mvmfd_obj, centerfns = TRUE) {
 
 # sequential power algorithm
 sequential_power <- function(mvmfd_obj, n, smooth_tuning, smooth_tuning_type, sparse_tuning, sparse_tuning_type, centerfns, alpha_orth, K_fold, sparse_CV, smooth_GCV) {
+  print(smooth_tuning)
   p <- mvmfd_obj$nvar
   smooth_penalty <- ReMFPCA:::pen_fun(mvmfd_obj, type = smooth_tuning_type)
 
@@ -282,6 +283,8 @@ sequential_power <- function(mvmfd_obj, n, smooth_tuning, smooth_tuning_type, sp
   G <- as.matrix(mvmfd_obj$basis$gram)
   G_half <- sqrtm(G)
   G_half_inverse = solve(G_half)
+  
+  all_equal_check <- sapply(smooth_tuning, function(x) length(unique(x)) == 1)
   
   #########matrix input of smoothing parameters###########
   if (smooth_GCV == FALSE) {
@@ -358,6 +361,10 @@ sequential_power <- function(mvmfd_obj, n, smooth_tuning, smooth_tuning_type, sp
       lsv = cbind(lsv, v)
       b_total = cbind(b_total, b)
       v_total = cbind(v_total, test_result[[3]])
+      
+      if (all(all_equal_check)) { ### PCs are alpha orthogonal
+        variance[i] <- (norm(B %*% G %*% b, type = "2") / sqrt(mvmfd_obj$nobs - 1))^2
+      } else{
       if (i == 1) {
         variance[i] <- (norm(B %*% G %*% b, type = "2") / sqrt(mvmfd_obj$nobs - 1))^2
       }
@@ -369,6 +376,7 @@ sequential_power <- function(mvmfd_obj, n, smooth_tuning, smooth_tuning_type, sp
         coef_pc_pre = B %*% G %*% b_total[, -i] %*% solve(G_pc_pre)
         total_variance_previous = sum(diag((coef_pc_pre%*%t(b_total[, -i])) %*% G %*% t(coef_pc_pre%*%t(b_total[, -i]))))
         variance[i] = (total_variance - total_variance_previous) / (mvmfd_obj$nobs - 1)
+      }
       }
     }
   } 
@@ -462,6 +470,10 @@ sequential_power <- function(mvmfd_obj, n, smooth_tuning, smooth_tuning_type, sp
       lsv = cbind(lsv, v)
       b_total = cbind(b_total, b)
       v_total = cbind(v_total, test_result[[3]])
+      
+      if (all(all_equal_check)) {
+        variance[i] <- (norm(B %*% G %*% b, type = "2") / sqrt(mvmfd_obj$nobs - 1))^2
+      } else{
       if (i == 1) {
         variance[i] <- (norm(B %*% G %*% b, type = "2") / sqrt(mvmfd_obj$nobs - 1))^2
       }
@@ -474,7 +486,7 @@ sequential_power <- function(mvmfd_obj, n, smooth_tuning, smooth_tuning_type, sp
         total_variance_previous = sum(diag((coef_pc_pre%*%t(b_total[, -i])) %*% G %*% t(coef_pc_pre%*%t(b_total[, -i]))))
         variance[i] = (total_variance - total_variance_previous) / (mvmfd_obj$nobs - 1)
       }
-      
+      }
     }
     if (is.null(smooth_tuning)) {
       GCV_score = NULL
@@ -567,17 +579,18 @@ joint_power <- function(mvmfd_obj, n, smooth_tuning, smooth_tuning_type, centerf
   b_total = b
   v_total = test_result[[3]]
   for (k in 1:n) {
-    if (k == 1) {
+    # if (k == 1) {
       variance[k] <- (norm(B %*% G %*% b[, k], type = "2") / sqrt(mvmfd_obj$nobs - 1))^2
-    } else{
-      G_pc = t(b_total)%*%G%*%b_total
-      coef_pc = B %*% G %*% b_total %*% solve(G_pc)
-      total_variance = sum(diag((coef_pc%*%t(b_total)) %*% G %*% t(coef_pc%*%t(b_total))))
-      G_pc_pre = t(b_total[, 1:(k-1)])%*%G%*%b_total[, 1:(k-1)]
-      coef_pc_pre = B %*% G %*% b_total[, 1:(k-1)] %*% solve(G_pc_pre)
-      total_variance_previous = sum(diag((coef_pc_pre%*%t(b_total[, 1:(k-1)])) %*% G %*% t(coef_pc_pre%*%t(b_total[, 1:(k-1)]))))
-      variance[k] = (total_variance - total_variance_previous) / (mvmfd_obj$nobs - 1)
-    }
+    # } else{
+    #   # G_pc = t(b_total)%*%G%*%b_total
+    #   # coef_pc = B %*% G %*% b_total %*% solve(G_pc)
+    #   # total_variance = sum(diag((coef_pc%*%t(b_total)) %*% G %*% t(coef_pc%*%t(b_total))))
+    #   # G_pc_pre = t(b_total[, 1:(k-1)])%*%G%*%b_total[, 1:(k-1)]
+    #   # coef_pc_pre = B %*% G %*% b_total[, 1:(k-1)] %*% solve(G_pc_pre)
+    #   # total_variance_previous = sum(diag((coef_pc_pre%*%t(b_total[, 1:(k-1)])) %*% G %*% t(coef_pc_pre%*%t(b_total[, 1:(k-1)]))))
+    #   # variance[k] = (total_variance - total_variance_previous) / (mvmfd_obj$nobs - 1)
+    #   variance[k] <- (norm(B %*% G %*% b[, k], type = "2") / sqrt(mvmfd_obj$nobs - 1))^2
+    # }
   }
   return(list(pc, lsv, variance, smooth_tuning_result, GCV_score))
 } 
