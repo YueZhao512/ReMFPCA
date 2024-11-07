@@ -120,12 +120,11 @@ eigen_approach <- function(mvmfd_obj, n, alpha, centerfns, penalty_type) {
     temp_count <- temp_count + prod(mvmfd_obj$basis$nbasis[[i]])
   }
   variance <- diag(t(b) %*% G %*% V %*% G %*% b)
-  sigma <- sqrt(variance)
-  lsv <- (B_c %*% G %*% b) %*% solve(diag(sqrt(diag(t(B_c %*% G %*% b) %*% (B_c %*% G %*% b)))))
+  lsv <- (B_c %*% G %*% b) %*% solve(diag(sqrt(diag(t(B_c %*% G %*% b) %*% (B_c %*% G %*% b))),nc=ncol(b)))
 
   bbbb <- c()
   for (k in 1:p) {
     bbbb <- rbind(bbbb, pc[[k]])
   }
-  return(list(pc, lsv, variance, GCV_result, 0))
+  return(list(pc, lsv, variance, GCV_result, GCVs))
 }

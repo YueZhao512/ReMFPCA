@@ -213,7 +213,7 @@ remfpca <- R6::R6Class("remfpca",
                                    }
                                    
                                    result <- joint_power(mvmfd_obj = mvmfd_obj, n = ncomp, smooth_tuning = smooth_tuning, centerfns = centerfns, alpha_orth = alpha_orth, smooth_tuning_type = smoothing_type)
-                                 } else if (method == "eigen" ) {
+                                 } else if (method == "eigen") {
                                    result <- eigen_approach(mvmfd_obj = mvmfd_obj, n = ncomp, alpha = smooth_tuning, centerfns = centerfns, penalty_type = smoothing_type)
                                  }
                                  coef <- result[[1]]
@@ -235,7 +235,7 @@ remfpca <- R6::R6Class("remfpca",
                                  private$.lsv <- result[[2]]
                                  private$.values <- result[[3]]
                                  private$.smooth_tuning <- result[[4]]
-                                 if (alpha_orth == "FALSE") {
+                                 if (alpha_orth == "FALSE" && method == "power") {
                                    private$.sparse_tuning <- result[[5]]
                                    private$.CVs <- result[[6]]
                                    private$.GCVs <- result[[7]]

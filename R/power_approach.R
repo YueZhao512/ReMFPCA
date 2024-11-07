@@ -63,14 +63,14 @@ init_joint = function(data, S_smooth = NULL, S_2_inverse = NULL, G_half_inverse 
     v_new = data%*%b_old
     b_new = S_smooth%*%qr.Q(qr(as.matrix(t(data)%*%v_new)))
     b_new_back = G_half_inverse %*% b_new
-    b_new_back = b_new_back%*%diag(1/sqrt(diag(t(b_new_back) %*% S_2_inverse %*% b_new_back)))
+    b_new_back = sweep(b_new_back,2,sqrt(diag(t(b_new_back) %*% S_2_inverse %*% b_new_back)),"/")
     b_new = G_half%*%b_new_back
     errors = sum((b_new - b_old)^2)
     b_old = b_new
   }
-  v_new_rescale = v_new%*%diag(1/sqrt(diag(t(v_new)%*%v_new)))
+  v_new_rescale = sweep(v_new,2,sqrt(diag(t(v_new)%*%v_new)),"/")
   b_new = G_half_inverse%*%b_new
-  b_new = b_new %*% diag(1/sqrt(diag(t(b_new) %*% S_2_inverse %*% b_new)))
+  b_new = sweep(b_new,2,sqrt(diag(t(b_new) %*% S_2_inverse %*% b_new)),"/")
   return(list(b_new, v_new_rescale, v_new))
 }
 
