@@ -1,8 +1,41 @@
 #' @importFrom expm sqrtm
 #' @importFrom utils  txtProgressBar setTxtProgressBar
+
+# gcv_local1 = function(data, mvmfd_obj, G, G_half, S_smooth, u, smooth_tuning) {
+#   p = mvmfd_obj$nvar
+#   indices <- sapply(1:p, function(i) prod(mvmfd_obj$basis$nbasis[[i]]))
+#   C_subtilde = data %*% G_half
+#   # print(dim(u))
+#   if (all(smooth_tuning == 0)) {
+#     error_smooth_score <- 0
+#   } else {
+#     error_smooth_score <- 0
+#     start_index <- 1
+#     
+#     for (i in 1:p) {
+#       end_index <- start_index + indices[i] - 1
+#       
+#       if (smooth_tuning[i] == 0) {
+#         error_smooth_score_i <- 0
+#       } else {
+#         s_alpha_tilde_i <- S_smooth[start_index:end_index, start_index:end_index]
+#         C_subtilde_i <- C_subtilde[, start_index:end_index]
+#         error_smooth_score_i <- sum(((diag(indices[i]) - s_alpha_tilde_i) %*% (t(C_subtilde_i) %*% u))^2) /  
+#           (1 - sum(diag(s_alpha_tilde_i)) / indices[i])^2
+#       }
+#       
+#       error_smooth_score <- error_smooth_score + error_smooth_score_i
+#       start_index <- end_index + 1
+#     }
+#   }
+#   
+#   return(error_smooth_score)
+# }
+
 eigen_approach <- function(mvmfd_obj, n, alpha, centerfns, penalty_type) {
   m.rep <- mvmfd_obj$nobs
   p <- mvmfd_obj$nvar
+  indices <- sapply(1:p, function(i) prod(mvmfd_obj$basis$nbasis[[i]]))
   if (is.null(alpha)) {
     for (i in 1:p) {
       alpha <- c(alpha, list(2^seq(-20, 20, length.out = 5)))
@@ -45,7 +78,7 @@ eigen_approach <- function(mvmfd_obj, n, alpha, centerfns, penalty_type) {
   }
   B <- t(B)
   B_c <- t(B_c)
-  B_subtilde <- B_c %*% G_half
+  # B_subtilde <- B_c %*% G_half
   I_matrix <- diag(1, m.rep)
   J <- matrix(1, m.rep, m.rep)
   if (centerfns) {
@@ -74,30 +107,14 @@ eigen_approach <- function(mvmfd_obj, n, alpha, centerfns, penalty_type) {
     E <- eigen(S %*% t(G) %*% V %*% G %*% t(S))
     u <- E$vectors
     s_alpha <- sqrtm(solve(G + D))
-    s_alpha_tilde <- G_half %*% (s_alpha %*% s_alpha) %*% G_half
+    s_alpha_tilde <- G_half %*% (solve(G + D)) %*% G_half
     b_temp <- c()
     for (k in 1:n) {
       b_temp <- cbind(b_temp, ((t(S) %*% u[, k]) %*% (t(u[, k]) %*% S %*% G %*% t(S) %*% u[, k])^(-0.5)))
     }
     v_temp <- B_c %*% G %*% b_temp
-
-    if (all(alpha[j, ] == 0)) {
-      GCV_score_temp <- 0
-    } else {
-      # GCV_score_temp <- (sum(((diag(dim(s_alpha_tilde)[1]) - s_alpha_tilde) %*% (t(B_subtilde) %*% v_temp))^2) / ((1 - sum(diag(s_alpha_tilde)) / dim(G)[1])^2)) / dim(G)[1]
-      if (p == 1) {
-        GCV_score_temp <- (sum(((diag(dim(s_alpha_tilde)[1]) - s_alpha_tilde) %*% (t(B_subtilde) %*% v_temp))^2) / ((1 - sum(diag(s_alpha_tilde)) / dim(G)[1])^2)) / dim(G)[1]
-      }
-      else{
-        s_alpha_tilde_1 = s_alpha_tilde[1:index1,1:index1]
-        s_alpha_tilde_2 = s_alpha_tilde[(1+index1):(index1+index2),(1+index1):(index1+index2)]
-        B_subtilde_1 = B_subtilde[,1:index1]
-        B_subtilde_2 = B_subtilde[,(1+index1):(index1+index2)]
-        GCV_score_temp_1 <- sum(((diag(index1) - s_alpha_tilde_1) %*% (t(B_subtilde_1) %*% v_temp))^2)/(1-sum(diag(s_alpha_tilde_1))/index1)^2
-        GCV_score_temp_2 <- sum(((diag(index2) - s_alpha_tilde_2) %*% (t(B_subtilde_2) %*% v_temp))^2)/(1-sum(diag(s_alpha_tilde_2))/index2)^2
-        GCV_score_temp = GCV_score_temp_1 + GCV_score_temp_2
-      }
-    }
+    v_temp <- sweep(v_temp,2,sqrt(diag(t(v_temp)%*%v_temp)),"/")
+    GCV_score_temp = gcv_local(data = B_c, mvmfd_obj = mvmfd_obj, G = G, G_half = G_half, S_smooth = s_alpha_tilde, u = v_temp, smooth_tuning = alpha[j, ])
     GCVs <- c(GCVs, GCV_score_temp)
 
     if (GCV_score_temp < GCV_score) {
@@ -120,12 +137,10 @@ eigen_approach <- function(mvmfd_obj, n, alpha, centerfns, penalty_type) {
     temp_count <- temp_count + prod(mvmfd_obj$basis$nbasis[[i]])
   }
   variance <- diag(t(b) %*% G %*% V %*% G %*% b)
-  sigma <- sqrt(variance)
-  lsv <- (B_c %*% G %*% b) %*% solve(diag(sqrt(diag(t(B_c %*% G %*% b) %*% (B_c %*% G %*% b)))))
-
+  lsv <- (B_c %*% G %*% b) %*% solve(diag(sqrt(diag(t(B_c %*% G %*% b) %*% (B_c %*% G %*% b))),nc=ncol(b)))
   bbbb <- c()
   for (k in 1:p) {
     bbbb <- rbind(bbbb, pc[[k]])
   }
-  return(list(pc, lsv, variance, GCV_result, 0))
+  return(list(pc, lsv, variance, GCV_result, GCVs))
 }

@@ -146,7 +146,8 @@ remfpca <- R6::R6Class("remfpca",
                                    result <- sequential_power(mvmfd_obj = mvmfd_obj, n = ncomp, smooth_tuning = smooth_tuning, sparse_tuning=sparse_tuning, centerfns = centerfns, alpha_orth = alpha_orth, smooth_tuning_type = smoothing_type, sparse_tuning_type = sparse_type, K_fold = K_fold, sparse_CV, smooth_GCV)
                                  } 
                                  
-                                 else if (method == "power" & alpha_orth == "TRUE") {
+                                 # else if (method == "power" & alpha_orth == "TRUE") {
+                                 else if (method == "eigen" || alpha_orth == "TRUE") {
                                    # Adjust the vector to match the required lengths if they are incorrect
                                    if (is.vector(smooth_tuning) & !is.list(smooth_tuning)) {
                                      if (smooth_GCV == FALSE) {
@@ -211,10 +212,11 @@ remfpca <- R6::R6Class("remfpca",
                                    if (!is.null(smooth_tuning)) {
                                      names(smooth_tuning) <- paste0("var", 1:mvmfd_obj$nvar)
                                    }
-                                   
-                                   result <- joint_power(mvmfd_obj = mvmfd_obj, n = ncomp, smooth_tuning = smooth_tuning, centerfns = centerfns, alpha_orth = alpha_orth, smooth_tuning_type = smoothing_type)
-                                 } else if (method == "eigen" ) {
-                                   result <- eigen_approach(mvmfd_obj = mvmfd_obj, n = ncomp, alpha = smooth_tuning, centerfns = centerfns, penalty_type = smoothing_type)
+                                   if (method == "power") {
+                                     result <- joint_power(mvmfd_obj = mvmfd_obj, n = ncomp, smooth_tuning = smooth_tuning, centerfns = centerfns, alpha_orth = alpha_orth, smooth_tuning_type = smoothing_type)
+                                   } else{
+                                     result <- eigen_approach(mvmfd_obj = mvmfd_obj, n = ncomp, alpha = smooth_tuning, centerfns = centerfns, penalty_type = smoothing_type)
+                                   }
                                  }
                                  coef <- result[[1]]
                                  pcmfd <- list()
@@ -235,7 +237,7 @@ remfpca <- R6::R6Class("remfpca",
                                  private$.lsv <- result[[2]]
                                  private$.values <- result[[3]]
                                  private$.smooth_tuning <- result[[4]]
-                                 if (alpha_orth == "FALSE") {
+                                 if (alpha_orth == "FALSE" && method == "power") {
                                    private$.sparse_tuning <- result[[5]]
                                    private$.CVs <- result[[6]]
                                    private$.GCVs <- result[[7]]
@@ -352,7 +354,7 @@ remfpca <- R6::R6Class("remfpca",
 #'                                        If `method` is "power" and `alpha_orth = TRUE` (joint power), tuning parameters should be provided as a vector with length equal to the number of variables.
 #'                                        If the dimensions of input tuning parameters are incorrect, it will be converted to a list internally, and a warning will be issued. 
 #' @export
-Remfpca <- function(mvmfd_obj, method = "power", ncomp, smooth_tuning = NULL, sparse_tuning = NULL, centerfns = TRUE, alpha_orth = FALSE, smoothing_type = "coefpen", sparse_type = "soft", K_fold=30, sparse_CV = TRUE, smooth_GCV = TRUE) {
+Remfpca <- function(mvmfd_obj, method = "power", ncomp, smooth_tuning = NULL, sparse_tuning = NULL, centerfns = TRUE, alpha_orth = FALSE, smoothing_type = "basispen", sparse_type = "soft", K_fold=30, sparse_CV = TRUE, smooth_GCV = TRUE) {
   remfpca$new(mvmfd_obj, method, ncomp, smooth_tuning, sparse_tuning, centerfns, alpha_orth, smoothing_type, sparse_type, K_fold, sparse_CV, smooth_GCV)
 }
 #' @rdname remfpca
