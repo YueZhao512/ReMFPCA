@@ -56,6 +56,7 @@ init_sequential = function(data, sparse_tuning_result, sparse_tuning_type, S_smo
 init_joint = function(data, S_smooth = NULL, S_2_inverse = NULL, G_half_inverse = NULL, G_half = NULL, n = n){
   v_old = svd(data)$v[, 1:n]
   errors = 10^60
+<<<<<<< HEAD
   while (errors > 10^-10) {
     u_new = data%*%v_old
     u_new = sweep(u_new,2,sqrt(diag(t(u_new)%*%u_new)),"/")
@@ -66,6 +67,21 @@ init_joint = function(data, S_smooth = NULL, S_2_inverse = NULL, G_half_inverse 
   v_new = G_half_inverse%*%v_new
   v_new = sweep(v_new,2,sqrt(diag(t(v_new) %*% S_2_inverse %*% v_new)),"/")
   return(list(v_new, u_new))
+=======
+  while (errors > 0.00001) {
+    v_new = data%*%b_old
+    b_new = S_smooth%*%qr.Q(qr(as.matrix(t(data)%*%v_new)))
+    b_new_back = G_half_inverse %*% b_new
+    b_new_back = sweep(b_new_back,2,sqrt(diag(t(b_new_back) %*% S_2_inverse %*% b_new_back)),"/")
+    b_new = G_half%*%b_new_back
+    errors = sum((b_new - b_old)^2)
+    b_old = b_new
+  }
+  v_new_rescale = sweep(v_new,2,sqrt(diag(t(v_new)%*%v_new)),"/")
+  b_new = G_half_inverse%*%b_new
+  b_new = sweep(b_new,2,sqrt(diag(t(b_new) %*% S_2_inverse %*% b_new)),"/")
+  return(list(b_new, v_new_rescale, v_new))
+>>>>>>> d51ad4005ba30511d56fb30317912ead8d9d4486
 }
 
 

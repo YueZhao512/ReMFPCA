@@ -212,11 +212,18 @@ remfpca <- R6::R6Class("remfpca",
                                    if (!is.null(smooth_tuning)) {
                                      names(smooth_tuning) <- paste0("var", 1:mvmfd_obj$nvar)
                                    }
+<<<<<<< HEAD
                                    if (method == "power") {
                                      result <- joint_power(mvmfd_obj = mvmfd_obj, n = ncomp, smooth_tuning = smooth_tuning, centerfns = centerfns, alpha_orth = alpha_orth, smooth_tuning_type = smoothing_type)
                                    } else{
                                      result <- eigen_approach(mvmfd_obj = mvmfd_obj, n = ncomp, alpha = smooth_tuning, centerfns = centerfns, penalty_type = smoothing_type)
                                    }
+=======
+                                   
+                                   result <- joint_power(mvmfd_obj = mvmfd_obj, n = ncomp, smooth_tuning = smooth_tuning, centerfns = centerfns, alpha_orth = alpha_orth, smooth_tuning_type = smoothing_type)
+                                 } else if (method == "eigen") {
+                                   result <- eigen_approach(mvmfd_obj = mvmfd_obj, n = ncomp, alpha = smooth_tuning, centerfns = centerfns, penalty_type = smoothing_type)
+>>>>>>> d51ad4005ba30511d56fb30317912ead8d9d4486
                                  }
                                  coef <- result[[1]]
                                  pcmfd <- list()

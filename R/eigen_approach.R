@@ -138,6 +138,10 @@ eigen_approach <- function(mvmfd_obj, n, alpha, centerfns, penalty_type) {
   }
   variance <- diag(t(b) %*% G %*% V %*% G %*% b)
   lsv <- (B_c %*% G %*% b) %*% solve(diag(sqrt(diag(t(B_c %*% G %*% b) %*% (B_c %*% G %*% b))),nc=ncol(b)))
+<<<<<<< HEAD
+=======
+
+>>>>>>> d51ad4005ba30511d56fb30317912ead8d9d4486
   bbbb <- c()
   for (k in 1:p) {
     bbbb <- rbind(bbbb, pc[[k]])
