@@ -1,37 +1,6 @@
 #' @importFrom expm sqrtm
 #' @importFrom utils  txtProgressBar setTxtProgressBar
 
-# gcv_local1 = function(data, mvmfd_obj, G, G_half, S_smooth, u, smooth_tuning) {
-#   p = mvmfd_obj$nvar
-#   indices <- sapply(1:p, function(i) prod(mvmfd_obj$basis$nbasis[[i]]))
-#   C_subtilde = data %*% G_half
-#   # print(dim(u))
-#   if (all(smooth_tuning == 0)) {
-#     error_smooth_score <- 0
-#   } else {
-#     error_smooth_score <- 0
-#     start_index <- 1
-#     
-#     for (i in 1:p) {
-#       end_index <- start_index + indices[i] - 1
-#       
-#       if (smooth_tuning[i] == 0) {
-#         error_smooth_score_i <- 0
-#       } else {
-#         s_alpha_tilde_i <- S_smooth[start_index:end_index, start_index:end_index]
-#         C_subtilde_i <- C_subtilde[, start_index:end_index]
-#         error_smooth_score_i <- sum(((diag(indices[i]) - s_alpha_tilde_i) %*% (t(C_subtilde_i) %*% u))^2) /  
-#           (1 - sum(diag(s_alpha_tilde_i)) / indices[i])^2
-#       }
-#       
-#       error_smooth_score <- error_smooth_score + error_smooth_score_i
-#       start_index <- end_index + 1
-#     }
-#   }
-#   
-#   return(error_smooth_score)
-# }
-
 eigen_approach <- function(mvmfd_obj, n, alpha, centerfns, penalty_type) {
   m.rep <- mvmfd_obj$nobs
   p <- mvmfd_obj$nvar
@@ -138,10 +107,6 @@ eigen_approach <- function(mvmfd_obj, n, alpha, centerfns, penalty_type) {
   }
   variance <- diag(t(b) %*% G %*% V %*% G %*% b)
   lsv <- (B_c %*% G %*% b) %*% solve(diag(sqrt(diag(t(B_c %*% G %*% b) %*% (B_c %*% G %*% b))),nc=ncol(b)))
-<<<<<<< HEAD
-=======
-
->>>>>>> d51ad4005ba30511d56fb30317912ead8d9d4486
   bbbb <- c()
   for (k in 1:p) {
     bbbb <- rbind(bbbb, pc[[k]])
