@@ -26,7 +26,7 @@ sparse_pen_fun <- function(y, tuning_parameter, type, alpha = 3.7) {
 
 #sequential power algorithm 
 init_sequential = function(data, sparse_tuning_result, sparse_tuning_type, S_smooth = NULL, S_2_inverse = NULL, G_half_inverse = NULL, G_half = NULL, cv_flag = FALSE){
-  v_old = svd(data)$v[, 1]
+  v_old = svd(as.matrix(data))$v[, 1]
   errors = 10^60
   while (errors > 0.00001) {
     u_new = sparse_pen_fun(y = data%*%v_old, tuning_parameter = sparse_tuning_result, sparse_tuning_type)
@@ -56,11 +56,11 @@ init_sequential = function(data, sparse_tuning_result, sparse_tuning_type, S_smo
 init_joint = function(data, S_smooth = NULL, S_2_inverse = NULL, G_half_inverse = NULL, G_half = NULL, n = n){
   v_old = svd(data)$v[, 1:n]
   errors = 10^60
-  while (errors > 10^-10) {
+  while (errors > 0.00001) {
     u_new = data%*%v_old
     u_new = sweep(u_new,2,sqrt(diag(t(u_new)%*%u_new)),"/")
     v_new = S_smooth%*%qr.Q(qr(as.matrix(t(data)%*%u_new)))
-    errors = sum((v_new - v_old)^2)
+    errors = sum((v_new - v_old)^2)/n
     v_old = v_new
   }
   v_new = G_half_inverse%*%v_new
@@ -91,7 +91,6 @@ gcv_local = function(data, mvmfd_obj, G, G_half, S_smooth, u, smooth_tuning) {
   p = mvmfd_obj$nvar
   indices <- sapply(1:p, function(i) prod(mvmfd_obj$basis$nbasis[[i]]))
   C_subtilde = data %*% G_half
-  # print(dim(u))
   if (all(smooth_tuning == 0)) {
     error_smooth_score <- 0
   } else {
@@ -185,16 +184,13 @@ cv_gcv_sequential <- function(data, mvmfd_obj, smooth_tuning, sparse_tuning, spa
   count <- 0
   shuffled_row <- sample(ncol(data))
   group_size <- length(shuffled_row) / K_fold
-  
   n_iter <- (if (is.null(smooth_tuning)) 1 else dim(smooth_tuning)[1]) + (if (is.null(sparse_tuning)) 1 else length(sparse_tuning))
   pb <- txtProgressBar(min = 0, max = n_iter, style = 3, width = 50, char = "=")
-  
   # Handle sparse tuning
   sparse_tuning_result <- handle_sparse_tuning(data, G_half, sparse_tuning, sparse_tuning_type, K_fold, shuffled_row, group_size, CV_score_sparse, pb = pb)
   sparse_tuning_selection <- sparse_tuning_result$sparse_tuning_selection
   cv_scores <- sparse_tuning_result$cv_scores
   CV_score_sparse <- sparse_tuning_result$CV_score_sparse
-  
   # Handle smooth tuning
   smooth_tuning_result <- handle_smooth_tuning(data, G_half, G, S_smooth, S_2_inverse, G_half_inverse, mvmfd_obj, sparse_tuning_selection, sparse_tuning_type, smooth_tuning, CV_score_smooth, power_type = "sequential", pb = pb, count = (if (is.null(sparse_tuning)) 1 else length(sparse_tuning)))
   smooth_tuning_selection <- smooth_tuning_result$smooth_tuning_selection
@@ -285,8 +281,6 @@ handle_variance_update <- function(i, n, C, G, v_total, mvmfd_obj, all_equal_che
   return(list(pc = pc, lsv = lsv, v_total = v_total, variance = variance))
 }
 
-
-# sequential power algorithm
 sequential_power <- function(mvmfd_obj, n, smooth_tuning, smooth_tuning_type, sparse_tuning, sparse_tuning_type, centerfns, alpha_orth, K_fold, sparse_CV, smooth_GCV) {
   p <- mvmfd_obj$nvar
   smooth_penalty <- ReMFPCA:::pen_fun(mvmfd_obj, type = smooth_tuning_type)
@@ -304,7 +298,12 @@ sequential_power <- function(mvmfd_obj, n, smooth_tuning, smooth_tuning_type, sp
   G_half <- sqrtm(G)
   G_half_inverse = solve(G_half)
   all_equal_check <- sapply(smooth_tuning, function(x) length(unique(x)) == 1)
-  
+  rank_C = qr(C%*%G_half)$rank
+  if (rank_C < n) {
+    warning("The rank of the coefficient matrix is ", rank_C, 
+            ". The number of components for computation cannot exceed this rank and has been adjusted accordingly.")
+    n = rank_C
+  }
   #########matrix input of smoothing parameters###########
   if (smooth_GCV == FALSE) {
     v_total = c()
@@ -338,7 +337,6 @@ sequential_power <- function(mvmfd_obj, n, smooth_tuning, smooth_tuning_type, sp
       if (!is.null(sparse_tuning)) {
         sparse_tuning_temp <- if (sparse_CV == FALSE) sparse_tuning[i] else sparse_tuning
       }
-      
       cv_result = cv_gcv_sequential(
         data = C_temp, 
         mvmfd_obj = mvmfd_obj, 
@@ -415,11 +413,9 @@ sequential_power <- function(mvmfd_obj, n, smooth_tuning, smooth_tuning_type, sp
         b_original = t(C_temp)%*%u
         C_temp = C_temp - u%*%t(b_original)
       }
-      
       if (!is.null(sparse_tuning)) {
         sparse_tuning_temp <- if (sparse_CV == FALSE) sparse_tuning[i] else sparse_tuning
       }
-      
       cv_result = cv_gcv_sequential(
         data = C_temp, 
         mvmfd_obj = mvmfd_obj, 
@@ -433,7 +429,6 @@ sequential_power <- function(mvmfd_obj, n, smooth_tuning, smooth_tuning_type, sp
         S_smooth = S_smooth, 
         S_2_inverse = S_2_inverse
       )
-      
       sparse_result = cv_result[[1]]
       smooth_result_index = cv_result[[3]]
       if (sparse_CV == FALSE) {
@@ -443,7 +438,6 @@ sequential_power <- function(mvmfd_obj, n, smooth_tuning, smooth_tuning_type, sp
       }
       GCV_score[[i]] = cv_result[[5]]
       test_result = init_sequential(C_temp%*%G_half, sparse_result, sparse_tuning_type, S_smooth[[smooth_result_index]], S_2_inverse[[smooth_result_index]], G_half_inverse, G_half)
-      
       u = test_result[[2]]
       v = test_result[[1]]
       smooth_tuning_result[[i]] = smooth_tuning_temp[smooth_result_index, ]
@@ -468,7 +462,6 @@ sequential_power <- function(mvmfd_obj, n, smooth_tuning, smooth_tuning_type, sp
 
 # joint smooth and sparse power algorithm
 joint_power <- function(mvmfd_obj, n, smooth_tuning, smooth_tuning_type, centerfns, alpha_orth) {
-  print("*****")
   p <- mvmfd_obj$nvar
   smooth_penalty <- ReMFPCA:::pen_fun(mvmfd_obj, type = smooth_tuning_type)
   
@@ -487,6 +480,13 @@ joint_power <- function(mvmfd_obj, n, smooth_tuning, smooth_tuning_type, centerf
   G_half <- sqrtm(G)
   G_half_inverse = solve(G_half)
   ###################################
+  
+  rank_C = qr(C%*%G_half)$rank
+  if (rank_C < n) {
+    warning("The rank of the coefficient matrix is ", rank_C, 
+            ". The number of components for computation cannot exceed this rank and has been adjusted accordingly.")
+    n = rank_C
+  }
   
   #####smoothing parameter#######
   if (is.null(smooth_tuning)) {

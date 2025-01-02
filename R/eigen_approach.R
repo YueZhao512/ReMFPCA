@@ -73,8 +73,17 @@ eigen_approach <- function(mvmfd_obj, n, alpha, centerfns, penalty_type) {
     D <- I %*% penalty
     L <- t(chol(G + D))
     S <- as.matrix(solve(L))
+    rank_cov = qr(S %*% t(G) %*% V %*% G %*% t(S))$rank
     E <- eigen(S %*% t(G) %*% V %*% G %*% t(S))
+    if (rank_cov < n) {
+      warning("The rank of the coefficient matrix is ", rank_cov, 
+              ". The number of components for computation cannot exceed this rank and has been adjusted accordingly.")
+      
+      n = rank_cov
+      u <- E$vectors[,1:n]
+    } else{
     u <- E$vectors
+    }
     s_alpha <- sqrtm(solve(G + D))
     s_alpha_tilde <- G_half %*% (solve(G + D)) %*% G_half
     b_temp <- c()

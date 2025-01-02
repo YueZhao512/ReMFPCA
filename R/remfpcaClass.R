@@ -26,6 +26,7 @@
 #' t0 <- seq(0, 1, len = n)
 #' j <- 1:M
 #' alpha1 <- list(a1 = 2^seq(0, 1, length.out = 3), a2 = 2^seq(0, 1, length.out = 3))
+#' sparse_tuning = as.integer(seq(1, N-1, length.out = 10))
 #' psi_1 <- function(t, m) sin(m * pi * t) # eigenfunction of BB
 #' psi_2 <- function(t, m) sin((2 * m - 1) * pi / 2 * t) # eigenfunction of BM
 #' PC_1 <- outer(t0, j, FUN = psi_1) # n by M matrix
@@ -43,15 +44,20 @@
 #' mfd2 <- Mfd(X = X_2, mdbs = mdbs)
 #' mvmfd_obj <- Mvmfd(mfd1, mfd2)
 #' k <- 2
-#' Re0 <- Remfpca(mvmfd_obj, ncomp = k, alpha = c(0, 0))
+#' # Non Regularized MFPCA based on sequential power algorithm
+#' Re0 <- Remfpca(mvmfd_obj, ncomp = k, smooth_GCV = FALSE, sparse_CV = FALSE)
 #' fpc0 <- Re0$pc_mfd
 #' scores0 <- inprod_mvmfd(mvmfd_obj, fpc0)
 #' dim(scores0)
-#' Re0$alpha
-#' Re1 <- Remfpca(mvmfd_obj, ncomp = k, alpha = alpha1)
-#' Re1$alpha
-#' Re3 <- Remfpca(mfd1, ncomp = k, alpha = alpha1$a1)
-#' Re3$alpha
+#' # Smooth MFPCA based on sequential power algorithm
+#' Re1 <- Remfpca(mvmfd_obj, ncomp = k, smooth_tuning = alpha1)
+#' # Smooth and sparse MFPCA based on sequential power algorithm
+#' Re2 <- Remfpca(mvmfd_obj, ncomp = k, smooth_tuning = alpha1, sparse_tuning = sparse_tuning)
+#' # Smooth MFPCA based on joint power algorithm
+#' Re3 <- Remfpca(mvmfd_obj, ncomp = k, smooth_tuning = alpha1, alpha_orth = TRUE)
+#' # Smooth MFPCA based on eigen decomposition algorithm
+#' Re4 <- Remfpca(mvmfd_obj, ncomp = k, smooth_tuning = alpha1, method = "eigen")
+
 
 #' @import R6
 #' @importFrom fda getbasispenalty
@@ -60,12 +66,33 @@
 #' @export
 remfpca <- R6::R6Class("remfpca",
                              public = list(
+                               #' @description
+                               #' Initialize the `remfpca` class.
+                               #' @param mvmfd_obj An `mvmfd` object representing the multivariate functional data.
+                               #' @param method A character string specifying the approach to be used for MFPCA computation. 
+                               #'               Options are "power" (the default) or "eigen".
+                               #' @param ncomp The number of functional principal components to retain.
+                               #' @param smooth_tuning A list or vector specifying the smoothing regularization parameter(s).
+                               #' @param sparse_tuning A list or vector specifying the sparsity regularization parameter(s).
+                               #' @param centerfns Logical. Whether to center the functional data before analysis.
+                               #' @param alpha_orth Logical. Whether to perform orthogonalization of the regularization parameters.
+                               #' @param smoothing_type The type of smoothing penalty to be applied.
+                               #' @param sparse_type The type of sparse penalty to be applied.
+                               #' @param K_fold An integer specifying the number of folds in cross-validation.
+                               #' @param sparse_CV Logical. Whether cross-validation should be applied for sparse tuning.
+                               #' @param smooth_GCV Logical. Whether generalized cross-validation should be applied for smoothing tuning.
+                               
                                # initialize = function(mvmfd_obj, method = "power", ncomp, smooth_tuning = NULL, sparse_tuning = 0, centerfns = TRUE, alpha_orth = FALSE, smoothing_type = "coefpen", sparse_type = "soft", K_fold = 30, sparsity_CV = "marginal") {
                                initialize = function(mvmfd_obj, method = "power", ncomp, smooth_tuning = NULL, sparse_tuning = NULL, centerfns = TRUE, alpha_orth = FALSE, smoothing_type = "coefpen", sparse_type = "soft", K_fold = 30, sparse_CV, smooth_GCV) {
                                  # if (is.numeric(smooth_tuning)) smooth_tuning <- as.list(smooth_tuning)
                                  # if (is.vector(smooth_tuning)) smooth_tuning <- as.list(smooth_tuning)
                                  # if (is.vector(smooth_tuning)&& !is.list(smooth_tuning)) smooth_tuning <- list(smooth_tuning)
                                  if (is.mfd(mvmfd_obj)) mvmfd_obj <- mvmfd$new(mvmfd_obj)
+                                 
+                                 # if (ncomp > Reduce(`+`, mvmfd_obj$basis$nbasis)) {                                    
+                                 #   ncomp <- Reduce(`+`, mvmfd_obj$basis$nbasis)                                    
+                                 #   warning("The maximum number of components for computation should not exceed the total number of basis functions across all variables. The number of components has been set to the total number of basis functions.")
+                                 # }
                                  
                                  if (method == "power" & alpha_orth == "FALSE") {
                                    # Adjust the vector length to match the required dimensions if they are incorrect
@@ -344,8 +371,8 @@ remfpca <- R6::R6Class("remfpca",
 #' @param alpha_orth Logical indicating whether to perform orthogonalization of the regularization parameters. 
 #'                   If `method` is "power", setting `alpha_orth = FALSE` (default) uses the sequential power approach, 
 #'                   while setting `alpha_orth = TRUE` uses the joint power approach.
-#' @param smoothing_type The type of smoothing penalty to be applied on the coefficients. The types "coefpen" and "basispen" is supported. Default is "coefpen".
-#' @param sparse_type The type of sparse penalty to be applied on the coefficients. The types "soft-threshold", "hard-threshold" and "SCAD" is supported. Default is "soft-threshold".
+#' @param smoothing_type The type of smoothing penalty to be applied on the estimated functional PCs. The types "basispen" and "coefpen" is supported. Default is "basispen".
+#' @param sparse_type The type of sparse penalty to be applied on the estimated functional PCs. The types "soft-threshold", "hard-threshold" and "SCAD" is supported. Default is "soft-threshold".
 #' @param K_fold  An integer specifying the number of folds in the sparse cross-validation process. Default is 30. 
 #' @param sparse_CV @param sparse_CV Logical indicating whether cross-validation should be applied to select the optimal sparse tuning parameter in sequential power approach. 
 #'                                        If `sparse_CV = TRUE`, a series of tuning parameters should be provided as a vector with positive number with max equals to number of subjects. 
